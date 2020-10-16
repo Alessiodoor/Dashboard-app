@@ -1,2 +1,2 @@
-# ToDoList
-ToDoList app made with node js
+# Dashboard app
+Nodejs app with a collections of useful elements

@@ -1,0 +1,45 @@
+<%- include("partials/header") -%>
+<%- include("partials/navbar") -%>
+
+	<div class="box" id="heading">
+		<h1><%= listTitle %></h1>
+	</div>
+
+	<div class="box">
+		<ul>
+			<% listItems.forEach(function(item) { %>
+				<form action="/delete" method="post">
+					<div class="item">
+						<input type="checkbox" onChange="this.form.submit()" name="checkbox" value="<%= item._id %>">
+						<input type="hidden" name="listName" value=<%= listTitle %>></input>
+						<p> <%= item.name %></p>
+					</div>	
+				</form>
+			<% }) %>
+		</ul>
+		<form action="/" method="post" class="item ml-0">
+			<input type="text" name="newItem" placeholder="New Item" autocomplete="off">
+			<button type="submit" name="list" value=<%= listTitle %>>+</button>
+		</form>
+	</div>
+
+	<div class="box" id="heading">
+		<h1>Le tue liste</h1>
+	</div>
+
+	<div class="box">
+		<ul>
+			<% lists.forEach(function(list) { %>
+				<div class="item">
+					<a href="/<%= list.name %>"><p> <%= list.name %></p></a>
+				</div>
+			<% }) %>
+		</ul>
+		<div class="item">
+			<form action="/newList" method="post" class="item ml-0">
+				<input type="text" name="newList" placeholder="Crea una nuova lista">
+				<button type="submit" name="submitNewList">+</button>
+			</form>
+		</div>
+	</div>
+<%- include("partials/footer") -%>

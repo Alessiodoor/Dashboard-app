@@ -13,6 +13,7 @@ const findOrCreate = require('mongoose-findorcreate');
 
 //local requires
 const defaultList = require(__dirname + "/requires/default.js");
+const todolist = require(__dirname + "/requires/todolist.js");
 
 // Define application
 const app = express();
@@ -42,23 +43,11 @@ passport.deserializeUser(function(id, done) {
 
 // Connection to DB
 const local_url = "mongodb://localhost:27017/dashboardDB";
-mongoose.connect(local_url, {useUnifiedTopology: true, useNewUrlParser: true});
+mongoose.connect(local_url, {useUnifiedTopology: true, useNewUrlParser: true, useFindAndModify: false });
 
 // Create schemas
-const itemSchema = new mongoose.Schema({
-	name: {
-		type: String,
-		required: [true, "Specifie a name"]
-	}
-});
-
-const listSchema = new mongoose.Schema ({
-	name: {
-		type: String,
-		require: true
-	},
-	items: [itemSchema]
-});
+itemSchema = todolist.getItemSchema(mongoose);
+listSchema = todolist.getListSchema(mongoose);
 
 const userSchema = new mongoose.Schema ({
 	email: String,
@@ -96,11 +85,9 @@ const defaultItems = defaultList.createDefault(Item);
 app.get("/", function(req, res) {
 	//const day = date.getDate();
 	// Mostro tutte le liste
-	let lists = [];
-	List.find({}, function(err, results) {
-		if(!err){
-			lists = results;
-		}
+	var lists = [];
+	todolist.getLists(List, function(result) {
+		lists = result;
 	});
 
 	List.findOne({name: "Today"}, function(err, resultList) {
@@ -109,14 +96,9 @@ app.get("/", function(req, res) {
 		}else {
 			if(!resultList){
 				//insert default data
-				const todayList = new List({
-					name: "Today",
-					items: defaultItems
-				});
-
-				todayList.save(function(){
+				if(todolist.insertDefaultData(List, defaultItems, res)){
 					res.redirect("/");
-				});
+				}
 			}else{
 				res.render('home', {listTitle: "Today", listItems: resultList.items, lists: lists});
 			}
@@ -125,18 +107,11 @@ app.get("/", function(req, res) {
 });
 
 app.post("/", function(req, res) {
-	const itemName = req.body.newItem;
+	// insert new item in a list
 	const listName = req.body.list;
 
-	const item = new Item({
-		name: itemName
-	});
-
-	// cerco la lista custom e ci aggiungo l'item
-	List.findOne({name: listName}, function(err, doc) {
-		if(!err){
-			doc.items.push(item);
-			doc.save();
+	todolist.insertNewItem(req.body.newItem, listName, List, Item, function(saved) {
+		if(saved === true){
 			res.redirect("/" + listName);
 		}
 	});
@@ -155,7 +130,8 @@ app.post("/delete", function(req, res) {
 });
 
 app.post("/newList", function(req, res){
-	const listName = _.capitalize(req.body.newList);
+	let listName = _.capitalize(req.body.newList);
+	listName = _.replace(listName, ' ', '_');
 
 	List.findOne({name: listName}, function(err, resultList) {
 		if(err){
@@ -175,8 +151,8 @@ app.post("/newList", function(req, res){
 });
 
 app.get("/:costumListName", function(req, res) {
-	const listName = _.capitalize(req.params.costumListName);
-
+	let listName = _.capitalize(req.params.costumListName);
+	listName = _.replace(listName, ' ', '_');
 	// Mostro tutte le liste
 	let lists = [];
 	List.find({}, function(err, results) {

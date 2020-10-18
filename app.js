@@ -12,8 +12,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const findOrCreate = require('mongoose-findorcreate');
 
 //local requires
-const defaultList = require(__dirname + "/requires/default.js");
-const todolist = require(__dirname + "/requires/todolist.js");
+const TodoList = require(__dirname + "/requires/todolist.js");
 
 // Define application
 const app = express();
@@ -41,13 +40,11 @@ passport.deserializeUser(function(id, done) {
   });
 });
 
-// Connection to DB
+// Connection to DB, localhost, named dashboardDB
 const local_url = "mongodb://localhost:27017/dashboardDB";
 mongoose.connect(local_url, {useUnifiedTopology: true, useNewUrlParser: true, useFindAndModify: false });
 
-// Create schemas
-itemSchema = todolist.getItemSchema(mongoose);
-listSchema = todolist.getListSchema(mongoose);
+let todoList = new TodoList(mongoose);
 
 const userSchema = new mongoose.Schema ({
 	email: String,
@@ -58,8 +55,6 @@ const userSchema = new mongoose.Schema ({
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
 
-const Item = new mongoose.model("Item", itemSchema);
-const List = new mongoose.model("List", listSchema);
 const User = new mongoose.model("User", userSchema);
 
 // Initialize google login API
@@ -80,55 +75,81 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-const defaultItems = defaultList.createDefault(Item);
+// route methods
 
+// Home page, check if user is authenticated, of he is save the username
+// Next, get all the lists
+// And render the Today list, the home 
 app.get("/", function(req, res) {
+	let userName = "";
+
+	if(req.isAuthenticated()){
+		User.findById(req.user.id, function(err, resultUser) {
+			if(err){
+				console.log(err);
+			}else {
+				if(resultUser){
+					userName = resultUser.username;
+				}
+			}
+		});
+	}else {
+		console.log('not logged');
+	}
+
 	//const day = date.getDate();
-	// Mostro tutte le liste
 	var lists = [];
-	todolist.getLists(List, function(result) {
-		lists = result;
+	todoList.getLists(function(result) {
+		lists = result;	
 	});
 
-	List.findOne({name: "Today"}, function(err, resultList) {
+	todoList.getList("Today", function(err, resultList) {
 		if(err){
 			console.log(err);
 		}else {
 			if(!resultList){
 				//insert default data
-				if(todolist.insertDefaultData(List, defaultItems, res)){
-					res.redirect("/");
-				}
+				todoList.insertDefaultData(res, function(err) {
+					if(!err){
+						res.redirect("/");	
+					}else {
+						console.log(err);
+					}
+				});
+				
 			}else{
-				res.render('home', {listTitle: "Today", listItems: resultList.items, lists: lists});
+				res.render('home', {userName: "Prova", listTitle: "Today", listItems: resultList.items, lists: lists});
 			}
 		}
 	});
 });
 
+// Insert new item in a list
+// the listName is given by a form
 app.post("/", function(req, res) {
-	// insert new item in a list
 	const listName = req.body.list;
 
-	todolist.insertNewItem(req.body.newItem, listName, List, Item, function(saved) {
+	todoList.insertNewItem(req.body.newItem, listName, function(saved) {
 		if(saved === true){
 			res.redirect("/" + listName);
 		}
 	});
 });
 
+// Delete a item from a list
+// the listName is given by a form
 app.post("/delete", function(req, res) {
-	const checkedItemId = req.body.checkbox;
 	const listName = req.body.listName;
 
 	// find the custom list and remove the item 
-	List.findOneAndUpdate({name: listName}, {$pull: {items: {_id: checkedItemId}}}, function(err, doc) {
+	todoList.findOneAndUpdate(listName, req.body.checkbox, function(err, doc) {
 		if(!err){
 			res.redirect("/" + listName);
 		}
 	});
 });
 
+// Create a newList if is not in the db, than render the customList page
 app.post("/newList", function(req, res){
 	let listName = _.capitalize(req.body.newList);
 	listName = _.replace(listName, ' ', '_');
@@ -150,29 +171,78 @@ app.post("/newList", function(req, res){
 	});
 });
 
-app.get("/:costumListName", function(req, res) {
-	let listName = _.capitalize(req.params.costumListName);
-	listName = _.replace(listName, ' ', '_');
-	// Mostro tutte le liste
-	let lists = [];
-	List.find({}, function(err, results) {
-		if(!err){
-			lists = results;
-		}
+// Rendere login
+app.get("/login", function(req, res) {
+	res.render("login", {userName: ""});
+});
+
+// Login a user, the credentials are given by a form submition
+// After the creation and authentication redirect to home page (app.get("/"))
+app.post("/login", function(req, res) {
+	const newUser = new User ({
+		username: req.body.username,
+		password: req.body.password
 	});
 
-	List.findOne({name: listName}, function(err, doc) {
+	req.login(newUser, function(err) {
+		if(err){
+			console.log(err);
+		}else {
+			// atutentico l'utente con una strategia local, quando ho user sul db
+			passport.authenticate("local")(req, res, function() {
+				res.redirect("/");
+			});
+		}
+	});
+});
+
+// Rendere register page
+app.get("/register", function(req, res) {
+	res.render("register", {userName: ""});
+});
+
+// Create new user, the credentials are given by a form submition
+// After the creation the user is authenticated and redirected to the home page (app.get("/"))
+app.post("/register", function(req, res) {
+	User.register({username: req.body.username}, req.body.password, function(err, user) {
+		if(err){
+			console.log(err);
+			res.redirect("/register");
+		}else{
+			passport.authenticate("local")(req, res, function() {
+				res.redirect("/");
+			});
+		}
+	});
+});
+
+// Render a custom list
+// get the list name from the url, capitalize it and replace blanks with underscores
+// After, get the list from the db and render home 
+app.get("/:costumListName", function(req, res) {
+	if(req.isAuthenticated()){
+		console.log('logged');
+	}else {
+		console.log('not logged');
+	}
+
+	let listName = _.capitalize(req.params.costumListName);
+	listName = _.replace(listName, ' ', '_');
+	
+	// Mostro tutte le liste
+	var lists = [];
+	todoList.getLists(function(result) {
+			lists = result;	
+	});
+
+	todoList.getList(listName, function(err, doc) {
 		if(!err){
 			if(doc){
-				res.render("home", {listTitle: listName, listItems: doc.items, lists: lists})
+				res.render("home", {userName: "Prova", listTitle: listName, listItems: doc.items, lists: lists})
 			}
 		}
 	});
 }); 
-
-app.get("/about", function(req, res) {
-	res.render("about");
-});
 
 let port = process.env.PORT;
 if (port == null || port == "") {

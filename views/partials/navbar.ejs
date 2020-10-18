@@ -3,6 +3,10 @@
   <nav class="my-2 my-md-0 mr-md-3">
     <a class="p-2 text-dark" href="#">Meteo</a>
   </nav>
-  <a class="btn btn-outline-primary navbar-btn" href="/login">Sign in</a>
-  <a class="btn btn-outline-dark navbar-btn" href="/register">Sign up</a>
+  <% if(userName != "") { %>
+  	<a class="btn btn-outline-primary navbar-btn" href="/login"><%= userName %></a>
+  <% }else { %>
+  	<a class="btn btn-outline-primary navbar-btn" href="/login">Sign in</a>
+  	<a class="btn btn-outline-dark navbar-btn" href="/register">Sign up</a>
+  <% } %>
 </div>

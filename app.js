@@ -78,50 +78,13 @@ passport.use(new GoogleStrategy({
 // route methods
 
 // Home page, check if user is authenticated, of he is save the username
-// Next, get all the lists
-// And render the Today list, the home 
+// Next, redirect to Today list page
 app.get("/", function(req, res) {
-	let userName = "";
-
 	if(req.isAuthenticated()){
-		User.findById(req.user.id, function(err, resultUser) {
-			if(err){
-				console.log(err);
-			}else {
-				if(resultUser){
-					userName = resultUser.username;
-				}
-			}
-		});
-	}else {
-		console.log('not logged');
+		res.redirect("/Today");
+	}else{
+		res.render("welcome", {userName: ""});
 	}
-
-	//const day = date.getDate();
-	var lists = [];
-	todoList.getLists(function(result) {
-		lists = result;	
-	});
-
-	todoList.getList("Today", function(err, resultList) {
-		if(err){
-			console.log(err);
-		}else {
-			if(!resultList){
-				//insert default data
-				todoList.insertDefaultData(res, function(err) {
-					if(!err){
-						res.redirect("/");	
-					}else {
-						console.log(err);
-					}
-				});
-				
-			}else{
-				res.render('home', {userName: "Prova", listTitle: "Today", listItems: resultList.items, lists: lists});
-			}
-		}
-	});
 });
 
 // Insert new item in a list
@@ -151,21 +114,10 @@ app.post("/delete", function(req, res) {
 
 // Create a newList if is not in the db, than render the customList page
 app.post("/newList", function(req, res){
-	let listName = _.capitalize(req.body.newList);
-	listName = _.replace(listName, ' ', '_');
-
-	List.findOne({name: listName}, function(err, resultList) {
+	todoList.createNewList(req.body.newList, function(err, listName) {
 		if(err){
 			console.log(err);
 		}else {
-			if(!resultList){
-				const list = new List({
-					name: listName,
-					items: defaultItems
-				});
-
-				list.save();
-			}
 			res.redirect("/" + listName);
 		}
 	});
@@ -216,32 +168,48 @@ app.post("/register", function(req, res) {
 	});
 });
 
+// Logout the user and redirect to home
+app.get("/logout", function(req, res) {
+	req.logout();
+  	res.redirect('/');
+});
+
 // Render a custom list
+// If the user is authenticated get the username,
 // get the list name from the url, capitalize it and replace blanks with underscores
-// After, get the list from the db and render home 
+// After, get the list from the db and render list page
+// If is not authenticated go to "/" and show welcome page  
 app.get("/:costumListName", function(req, res) {
 	if(req.isAuthenticated()){
-		console.log('logged');
-	}else {
-		console.log('not logged');
-	}
+		User.findById(req.user.id, function(err, resultUser) {
+			if(err){
+				console.log(err);
+			}else {
+				if(resultUser){
+					const userName = resultUser.username;
 
-	let listName = _.capitalize(req.params.costumListName);
-	listName = _.replace(listName, ' ', '_');
-	
-	// Mostro tutte le liste
-	var lists = [];
-	todoList.getLists(function(result) {
-			lists = result;	
-	});
+					let listName = _.capitalize(req.params.costumListName);
+					listName = _.replace(listName, ' ', '_');
+					
+					// Mostro tutte le liste
+					var lists = [];
+					todoList.getLists(function(result) {
+							lists = result;	
+					});
 
-	todoList.getList(listName, function(err, doc) {
-		if(!err){
-			if(doc){
-				res.render("home", {userName: "Prova", listTitle: listName, listItems: doc.items, lists: lists})
+					todoList.getList(listName, function(err, doc) {
+						if(!err){
+							if(doc){
+								res.render("home", {userName: userName, listTitle: listName, listItems: doc.items, lists: lists})
+							}
+						}
+					});
+				}
 			}
-		}
-	});
+		});
+	}else {
+		res.redirect("/");
+	}
 }); 
 
 let port = process.env.PORT;

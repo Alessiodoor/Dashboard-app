@@ -1,19 +1,44 @@
 body {
   background-color: #E4E9FD;
-  background-image: -webkit-linear-gradient(65deg, #A683E3 50%, #E4E9FD 50%);
+  /*background-image: -webkit-linear-gradient(65deg, #A683E3 50%, #E4E9FD 50%);*/
   min-height: 1000px;
   font-family: 'helvetica neue';
 }
 
 h1 {
-  color: #fff;
   padding: 10px;
 }
 
+h5 {
+  margin-bottom: 0;
+}
+
 /* Navbar */
+.navbar-container{
+  padding: 1% 15%;
+}
 
 .navbar-btn {
   margin: 0 0.5%;
+}
+
+/* End Navbar */
+
+/* Title section */
+#title{
+  color: black;
+}  
+
+/* End Title section */
+
+/* List page */
+.listTitle {
+  color: #fff;
+}
+/* End List page */
+
+.container-fluid{
+  padding: 10% 15%;
 }
 
 .box {
@@ -62,7 +87,7 @@ form.item {/*form con classe item*/
   margin-left: 20px;
 }
 
-button {
+.circle-btn {
   min-height: 50px;
   width: 50px;
   border-radius: 50%;

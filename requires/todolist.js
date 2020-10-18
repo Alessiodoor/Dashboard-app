@@ -1,3 +1,5 @@
+const _ = require("lodash");
+
 class TodoList {
 	constructor(mongoose){
 		this.itemSchema = new mongoose.Schema({
@@ -103,6 +105,33 @@ class TodoList {
 				console.log(err);
 			}
 			
+		});
+	}
+
+	createNewList(listName, fn){
+		listName = _.capitalize(listName);
+		listName = _.replace(listName, ' ', '_');
+
+		const newList = new this.List({
+			name: listName,
+			items: this.defaultItems
+		});
+
+		this.List.findOne({name: listName}, function(err, resultList) {
+			if(err){
+				// callback(err, listName)
+				fn(err, null);
+			}else {
+				if(!resultList){
+					newList.save(function() {
+						// callback(err, listName)
+						fn(null, listName);
+					});
+				}else{
+					// callback(err, listName)
+					fn("List already exist", null);
+				}
+			}
 		});
 	}
 }
